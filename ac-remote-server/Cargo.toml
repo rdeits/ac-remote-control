@@ -1,0 +1,8 @@
+[package]
+name = "ac-remote-server"
+version = "0.1.0"
+authors = ["Robin Deits <robin.deits@gmail.com>"]
+
+[dependencies]
+nickel = "*"
+rustc-serialize = "*"

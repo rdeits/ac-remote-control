@@ -1,0 +1,6 @@
+
+https://www.analysir.com/blog/2015/01/06/reverse-engineering-mitsubishi-ac-infrared-protocol/
+
+Note: each byte is sent LSB-first
+
+https://github.com/rust-embedded/rust-sysfs-gpio/blob/master/README.md
