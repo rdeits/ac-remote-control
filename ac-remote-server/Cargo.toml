@@ -6,3 +6,4 @@ authors = ["Robin Deits <robin.deits@gmail.com>"]
 [dependencies]
 nickel = "*"
 rustc-serialize = "*"
+
