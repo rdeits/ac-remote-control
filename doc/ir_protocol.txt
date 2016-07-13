@@ -1,0 +1,93 @@
+Byte:
+0
+00100011
+
+1
+11001011
+
+2
+00100110
+
+3
+00000001
+
+4
+00000000
+
+5
+001TPX00
+On ->  X = 1
+Off -> X = 0
+
+Stop on   -> P = 1
+Stop off  -> P = 0
+
+Start on  -> T = 1
+Start off -> T = 0
+
+Off -> T = 0, P = 0, X = 0
+
+6
+0000MMMM
+Cool -> M = 0011
+Heat -> M = 0001
+Dry ->  M = 0010
+Feel -> M = 1000
+
+7 
+FFFFTTTT
+in Mode: Cool, Dry: T counts *down* as temperature increases: 
+59F -> T = 1111
+61F -> T = 1110
+63F -> T = 1101
+...
+87F -> T = 0001
+89F -> T = 0000
+
+in Mode: Dry, Feel: T = 0111
+
+in Mode: Feel:
+Ok ->          F = 0000
+too warm ->    F = 0010
+too warm x2 -> F = 1010
+too cool ->    F = 0001
+too cool x2 -> F = 1001
+
+8
+0PVVVFFF
+Fan 1 -> FFF = 010
+Fan 2 -> FFF = 011
+Fan 3 -> FFF = 101
+Fan auto -> FFF = 000
+
+Vane 1 -> VVV = 001
+Vane 2 -> VVV = 010
+Vane 3 -> VVV = 011
+Vane 4 -> VVV = 100
+Vane 5 -> VVV = 101
+Vane move -> VVV = 111
+Vane auto -> VVV = 000
+
+Stop on or Start on    -> P = 1
+Stop off and Start off -> P = 0
+
+Off -> all zeros
+
+9
+Stop time, in 1/6 hour increments from NOW (the current time according to the remote)
+
+All zeros when Off
+
+10
+Start time, in 1/6 hour increments from now
+
+All zeros when Off
+
+11
+00000000
+
+12
+00000000
+
+13
+Checksum

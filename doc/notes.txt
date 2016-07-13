@@ -4,3 +4,77 @@ https://www.analysir.com/blog/2015/01/06/reverse-engineering-mitsubishi-ac-infra
 Note: each byte is sent LSB-first
 
 https://github.com/rust-embedded/rust-sysfs-gpio/blob/master/README.md
+
+Installing rust on the raspberry pi: 
+Started here: https://github.com/japaric/ruststrap/issues/18
+
+mkdir cargo
+cd cargo
+wget "https://www.dropbox.com/sh/qfbt03ys2qkhsxs/AADsM5dKjYRwjdRi8n_5RcA4a/cargo-2015-07-28-b6668e6-arm-unknown-linux-gnueabihf-954d0eab80855a5f06bfeb21da24f007ebd42b77.tar.gz"
+tar xzf tar xzf cargo-2015-07-28-b6668e6-arm-unknown-linux-gnueabihf-954d0eab80855a5f06bfeb21da24f007ebd42b77.tar.gz
+
+cd ..
+mkdir rust
+cd rust
+wget "https://www.dropbox.com/sh/qfbt03ys2qkhsxs/AABjMzENEdE3xhqibrQYc6rba/rust-2015-07-29-8d432fb-arm-unknown-linux-gnueabihf-c6178c74d62e01ae3fdc66076fd0a770de151bd3.tar.gz"
+tar xzf rust-2015-07-29-8d432fb-arm-unknown-linux-gnueabihf-c6178c74d62e01ae3fdc66076fd0a770de151bd3.tar.gz
+
+Edited my .bashrc to add:
+
+export PATH="$PATH:$HOME/rust/bin:$HOME/cargo/bin"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$HOME/rust/lib:$HOME/cargo/lib"
+
+This worked, and I could run cargo and rustc. However, compiling the language-tags crate failed with an unstable feature warning (result_expect). This is probably because I have rust 1.2, and the current version is 1.10. I'm going to try building a newer version from source:
+
+git clone git@github.com:rust-lang/rust.git rust-source
+cd rust-source
+git checkout 1.10.0
+sudo apt install cmake make curl git
+
+I had to edit `configure` to add the following in the CPU type selection:
+
+```
+        armv6l)
+                CFG_CPUTYPE=arm
+                CFG_OSTYPE="${CFG_OSTYPE}eabihf"
+                ;;
+```
+
+Then `./configure` and `make`.
+
+Compiling LLVM takes forever. But this project has more up-to-date binaries: https://github.com/warricksothr/RustBuild
+
+Downloaded rust with
+
+```
+cd ~
+mkdir rustbuild
+cd rustbuild
+wget "https://www.dropbox.com/s/atfb97zynjp0uhe/rust-1.8.0-stable-2016-04-12-db29394-arm-unknown-linux-gnueabihf-ca7b144611875016d10127bf145fe11e34c40551.tar.gz"
+tar xzf rust-1.8.0-stable-2016-04-12-db29394-arm-unknown-linux-gnueabihf-ca7b144611875016d10127bf145fe11e34c40551.tar.gz
+wget "https://www.dropbox.com/s/nxzcloegozv6t74/cargo-0.11.0-stable-2016-05-05-3a7a620-arm-unknown-linux-gnueabihf-97521c0bf3a84650bea8e7013e5c63913d0bf262.tar.gz"
+tar xzf cargo-0.11.0-stable-2016-05-05-3a7a620-arm-unknown-linux-gnueabihf-97521c0bf3a84650bea8e7013e5c63913d0bf262.tar.gz
+```
+
+Then I just edited my `.bashrc` to add:
+
+```
+export PATH="$PATH:$HOME/rustbuild/bin"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$HOME/rustbuild/lib"
+```
+
+# Installing the GPIO interface
+
+Instructions from here: 
+Downloaded and built the bcm library:
+
+```
+wget "http://www.airspayce.com/mikem/bcm2835/bcm2835-1.50.tar.gz"
+tar xzf bcm2835-1.50.tar.gz
+cd bcm2835-1.50/
+./configure
+make
+sudo make install
+```
+
+Actually, wiringpi has rust bindings, so I can just use those!
