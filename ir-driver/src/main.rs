@@ -21,15 +21,15 @@ fn send_data_bit<P: Pin>(pin: &OutputPin<P>, value: bool) {
 	match value {
 		true => {
 			pin.digital_write(High);
-			delay_microseconds(420);
+			delay_microseconds(480);
 			pin.digital_write(Low);
-			delay_microseconds(1260);
+			delay_microseconds(1190);
 		},
 		false => {
 			pin.digital_write(High);
-			delay_microseconds(420);
+			delay_microseconds(480);
 			pin.digital_write(Low);
-			delay_microseconds(380);
+			delay_microseconds(340);
 		},
 	};
 }
@@ -40,16 +40,16 @@ fn send_data_byte<P: Pin>(pin: &OutputPin<P>, data: &u8) {
 	}
 }
 
-fn send_repeat_marker<P: Pin>(pin: &OutputPin<P>) {
+fn send_final_marker<P: Pin>(pin: &OutputPin<P>) {
 	pin.digital_write(High);
-	delay_microseconds(420);
+	delay_microseconds(460);
 	pin.digital_write(Low);
-	delay_microseconds(17080);
 }
 
 fn send_packet<P: Pin>(pin: &OutputPin<P>, bytes: &Vec<u8>) {
 	send_header(pin);
 	for byte in bytes { send_data_byte(pin, byte); }
+	send_final_marker(pin);
 }
 
 enum FanMode {
