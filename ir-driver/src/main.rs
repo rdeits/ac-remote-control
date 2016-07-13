@@ -55,18 +55,6 @@ fn send_packet<P: Pin>(pin: &OutputPin<P>, bytes: &Vec<u8>) {
 	}
 }
 
-enum Power {
-	On,
-	Off,
-}
-
-enum HvacMode {
-	Heat,
-	Dry,
-	Cold,
-	Auto,
-}
-
 enum FanMode {
 	Auto,
 	Speed(u8),
@@ -75,95 +63,128 @@ enum FanMode {
 enum VaneMode {
 	Auto,
 	Move,
-	Set(u8),
+	Position(u8),
 }
 
-struct Celsius(i32);
+struct Fahrenheit(i32);
 
-struct HvacCommand {
-	power: Power,
-	mode: HvacMode,
-	temperature: Celsius,
-	fan: FanMode,
-	vane: VaneMode,
-	clock: Tm,
-	start: Option<Tm>,
-	end: Option<Tm>,
+enum Feeling {
+	TooWarm,
+	MuchTooWarm,
+	TooCool,
+	MuchTooCool,
+}
+
+enum HvacMode {
+	Heat(Fahrenheit),
+	Dry,
+	Cool(Fahrenheit),
+	Feel(Feeling),
+}
+
+enum HvacCommand {
+	Off,
+	On {
+		mode: HvacMode,
+		fan: FanMode,
+		vane: VaneMode,
+		start: Option<Tm>,
+		stop: Option<Tm>
+	},
 }
 
 fn serialize_time(time: &Tm) -> u8 {
-	(time.tm_hour * 6 + time.tm_min / 10) as u8
+	now = time::now();
+	let delta = (time.tm_hour * 6 + time.tm_min / 10) - (now.tm_hour * 6 + now.tm_min / 10);
+	((delta % 24) + 24) % 24) as u8
 }
 
 fn serialize(command: &HvacCommand) -> Vec<u8> {
 	let mut data = vec![0x23, 0xcb, 0x26, 0x01, 0x00];
 
-	match command.power {
-		Power::On => data.push(0x20),
-		Power::Off => data.push(0x00),
-	}
+	match command {
+		&HvacCommand::Off => data.extend([0x20, 0x08, 0x07, 0x00, 0x00, 0x00]),
+		&HvacCommand::On {mode, fan, vane, start, stop} => {
 
-	match command.mode {
-		HvacMode::Heat => data.push(0x08),
-		HvacMode::Dry => data.push(0x10),
-		HvacMode::Cold => data.push(0x18),
-		HvacMode::Auto => data.push(0x20),
-	}
+			let mut power_data: u0 = 0b00100100
+			match start {
+				Some(_) => power_data |= 1 << 4,
+				None => {}
+			}
+			match stop {
+				Some(_) => power_data |= 1 << 3,
+				None => {}
+			}
+			data.push(power_data);
 
-	let Celsius(mut temperature) = command.temperature;
-	temperature = cmp::max(temperature, 16);
-	temperature = cmp::min(temperature, 31);
-	data.push((temperature - 16) as u8);
+			match mode {
+				HvacMode::Cool(_) => data.push(0b00000011),
+				HvacMode::Heat(_) => data.push(0b00000001),
+				HvacMode::Dry     => data.push(0b00000010),
+				HvacMode::Feel(_) => data.push(0b00001000),
+			}
 
-	match command.mode {
-		HvacMode::Heat => data.push(0x30),
-		HvacMode::Dry => data.push(0x32),
-		HvacMode::Cold => data.push(0x36),
-		HvacMode::Auto => data.push(0x30),
-	}
+			let mut temperature_data: u0 = 0;
+			match mode {
+				HvacMode::Cool(Fahrenheit(mut temperature)) | HvacMode::Heat(Fahrenheit(mut temperature)) => {
+					temperature = cmp::max(temperature, 89);
+					temperature = cmp::min(temperature, 59);
+					temperature_data |= ((89 - temperature) / 2) as u8;
+				},
+				HvacMode::Feel(feeling) => {
+					temperature_data |= 0b0111;
+					match feeling {
+				        Feeling::TooWarm)     => temperature_data |= 0b0010 << 4,
+				        Feeling::MuchTooWarm) => temperature_data |= 0b1010 << 4,
+				        Feeling::TooCool)     => temperature_data |= 0b0001 << 4,
+				        Feeling::MuchTooCool) => temperature_data |= 0b1001 << 4,
+					}
+				}
+				HvacMode::Dry => temperature_data |= 0b0111,
+			}
 
-	let mut fan_vane_data: u8 = 0x00;
-	match command.fan {
-		FanMode::Auto => fan_vane_data |= 1 << 7,
-		FanMode::Speed(mut speed) => {
-			speed = cmp::min(cmp::max(speed, 0), 7);
-			fan_vane_data |= speed
-		},
-	}
-	match command.vane {
-		VaneMode::Set(mut angle) => {
-			angle = cmp::min(cmp::max(angle, 5), 1);
-			fan_vane_data |= 0b01000000;
-			fan_vane_data |= angle << 3;
-		},
-		VaneMode::Auto => fan_vane_data |= 0b01000000,
-		VaneMode::Move => fan_vane_data |= 0b01111000,
-	}
-	data.push(fan_vane_data);
+			let mut fan_vane_data: u8 = 0;
+			match start {
+				Some(_) => fan_vane_data |= 1 < 6,
+				None => {}
+			}
+			match stop {
+				Some(_) => fan_vane_data |= 1 < 6, // Yup, start and stop both set the same bit here, but different bits in byte 5. 
+				None => {}
+			}
+			match fan {
+				FanMode::Auto => {},
+				FanMode::Speed(mut speed) => {
+					speed = cmp::min(cmp::max(speed, 1), 4);
+					fan_vane_data |= speed + 1;
+				},
+			}
+			match vane {
+				VaneMode::Auto => {},
+				VaneMode::Move => fan_vane_data |= 0b111 << 3,
+				VaneMode::Position(mut position) => {
+					position = cmp::min(cmp::max(position, 1), 5);
+					fan_vane_data |= position << 3;
+				},
+			}
+			data.push(fan_vane_data);
 
-	data.push(serialize_time(&command.clock));
-	
-	let mut prog_mode_data: u8 = 0x00;
-	match command.end {
-		Some(time) => {
-			data.push(serialize_time(&time));
-			prog_mode_data |= 0b00000101;
+			match stop {
+				Some(time) => data.push(serialize_time(&time)),
+				None => data.push(0x00),
+			}
+
+			match start {
+				Some(time) => data.push(serialize_time(&time)),
+				None => data.push(0x00),
+			}
 		}
-		None => data.push(0x00),
 	}
-
-	match command.start {
-		Some(time) => {
-			data.push(serialize_time(&time));
-			prog_mode_data |= 0b00000011;
-		},
-		None => data.push(0x00),
-	}
-
-	data.push(prog_mode_data);
 
 	data.push(0x00);
 	data.push(0x00);
+
+	assert_eq!(vec.len(), 13);
 
 	let Wrapping(checksum) = data.iter().fold(Wrapping(0u8), |sum, &x| sum + Wrapping(x));
 	data.push(checksum);
@@ -178,15 +199,12 @@ fn main() {
 	}
 	let pi = wiringpi::setup_gpio();
 	let pin = pi.output_pin(23);
-	let command = HvacCommand{
-		power: Power::On,
-		mode: HvacMode::Cold,
-		temperature: Celsius(23),
+	let command = HvacCommand::On {
+		mode: HvacMode::Cool(Fahrenheit(71)),
 		fan: FanMode::Auto,
 		vane: VaneMode::Move,
-		clock: time::now(),
 		start: None,
-		end: None,
+		stop: None,
 	};
 	
 	println!("Running");
