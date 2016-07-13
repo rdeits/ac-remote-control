@@ -94,75 +94,76 @@ enum HvacCommand {
 }
 
 fn serialize_time(time: &Tm) -> u8 {
-	now = time::now();
+	let now = time::now();
 	let delta = (time.tm_hour * 6 + time.tm_min / 10) - (now.tm_hour * 6 + now.tm_min / 10);
-	((delta % 24) + 24) % 24) as u8
+	(((delta % 24) + 24) % 24) as u8
 }
 
 fn serialize(command: &HvacCommand) -> Vec<u8> {
 	let mut data = vec![0x23, 0xcb, 0x26, 0x01, 0x00];
 
 	match command {
-		&HvacCommand::Off => data.extend([0x20, 0x08, 0x07, 0x00, 0x00, 0x00]),
-		&HvacCommand::On {mode, fan, vane, start, stop} => {
+		&HvacCommand::Off => data.extend([0x20, 0x08, 0x07, 0x00, 0x00, 0x00].iter().clone()),
+		&HvacCommand::On {ref mode, ref fan, ref vane, ref start, ref stop} => {
 
-			let mut power_data: u0 = 0b00100100
+			let mut power_data: u8 = 0b00100100;
 			match start {
-				Some(_) => power_data |= 1 << 4,
-				None => {}
+				&Some(_) => power_data |= 1 << 4,
+				&None => {}
 			}
 			match stop {
-				Some(_) => power_data |= 1 << 3,
-				None => {}
+				&Some(_) => power_data |= 1 << 3,
+				&None => {}
 			}
 			data.push(power_data);
 
 			match mode {
-				HvacMode::Cool(_) => data.push(0b00000011),
-				HvacMode::Heat(_) => data.push(0b00000001),
-				HvacMode::Dry     => data.push(0b00000010),
-				HvacMode::Feel(_) => data.push(0b00001000),
+				&HvacMode::Cool(_) => data.push(0b00000011),
+				&HvacMode::Heat(_) => data.push(0b00000001),
+				&HvacMode::Dry     => data.push(0b00000010),
+				&HvacMode::Feel(_) => data.push(0b00001000),
 			}
 
-			let mut temperature_data: u0 = 0;
+			let mut temperature_data: u8 = 0;
 			match mode {
-				HvacMode::Cool(Fahrenheit(mut temperature)) | HvacMode::Heat(Fahrenheit(mut temperature)) => {
+				&HvacMode::Cool(Fahrenheit(mut temperature)) | &HvacMode::Heat(Fahrenheit(mut temperature)) => {
 					temperature = cmp::max(temperature, 89);
 					temperature = cmp::min(temperature, 59);
 					temperature_data |= ((89 - temperature) / 2) as u8;
 				},
-				HvacMode::Feel(feeling) => {
+				&HvacMode::Feel(ref feeling) => {
 					temperature_data |= 0b0111;
 					match feeling {
-				        Feeling::TooWarm)     => temperature_data |= 0b0010 << 4,
-				        Feeling::MuchTooWarm) => temperature_data |= 0b1010 << 4,
-				        Feeling::TooCool)     => temperature_data |= 0b0001 << 4,
-				        Feeling::MuchTooCool) => temperature_data |= 0b1001 << 4,
+				        &Feeling::TooWarm     => temperature_data |= 0b0010 << 4,
+				        &Feeling::MuchTooWarm => temperature_data |= 0b1010 << 4,
+				        &Feeling::TooCool     => temperature_data |= 0b0001 << 4,
+				        &Feeling::MuchTooCool => temperature_data |= 0b1001 << 4,
 					}
 				}
-				HvacMode::Dry => temperature_data |= 0b0111,
+				&HvacMode::Dry => temperature_data |= 0b0111,
 			}
+			data.push(temperature_data);
 
 			let mut fan_vane_data: u8 = 0;
 			match start {
-				Some(_) => fan_vane_data |= 1 < 6,
-				None => {}
+				&Some(_) => fan_vane_data |= 1 << 6,
+				&None => {}
 			}
 			match stop {
-				Some(_) => fan_vane_data |= 1 < 6, // Yup, start and stop both set the same bit here, but different bits in byte 5. 
-				None => {}
+				&Some(_) => fan_vane_data |= 1 << 6, // Yup, start and stop both set the same bit here, but different bits in byte 5. 
+				&None => {}
 			}
 			match fan {
-				FanMode::Auto => {},
-				FanMode::Speed(mut speed) => {
-					speed = cmp::min(cmp::max(speed, 1), 4);
+				&FanMode::Auto => {},
+				&FanMode::Speed(ref speed) => {
+					let speed = cmp::min(cmp::max(*speed, 1), 4);
 					fan_vane_data |= speed + 1;
 				},
 			}
 			match vane {
-				VaneMode::Auto => {},
-				VaneMode::Move => fan_vane_data |= 0b111 << 3,
-				VaneMode::Position(mut position) => {
+				&VaneMode::Auto => {},
+				&VaneMode::Move => fan_vane_data |= 0b111 << 3,
+				&VaneMode::Position(mut position) => {
 					position = cmp::min(cmp::max(position, 1), 5);
 					fan_vane_data |= position << 3;
 				},
@@ -170,13 +171,13 @@ fn serialize(command: &HvacCommand) -> Vec<u8> {
 			data.push(fan_vane_data);
 
 			match stop {
-				Some(time) => data.push(serialize_time(&time)),
-				None => data.push(0x00),
+				&Some(time) => data.push(serialize_time(&time)),
+				&None => data.push(0x00),
 			}
 
 			match start {
-				Some(time) => data.push(serialize_time(&time)),
-				None => data.push(0x00),
+				&Some(time) => data.push(serialize_time(&time)),
+				&None => data.push(0x00),
 			}
 		}
 	}
@@ -184,7 +185,7 @@ fn serialize(command: &HvacCommand) -> Vec<u8> {
 	data.push(0x00);
 	data.push(0x00);
 
-	assert_eq!(vec.len(), 13);
+	assert_eq!(data.len(), 13);
 
 	let Wrapping(checksum) = data.iter().fold(Wrapping(0u8), |sum, &x| sum + Wrapping(x));
 	data.push(checksum);
