@@ -12,24 +12,24 @@ use std::num::Wrapping;
 
 fn send_header<P: Pin>(pin: &OutputPin<P>) {
 	pin.digital_write(High);
-	delay_microseconds(3400);
+	delay_microseconds(3320);
 	pin.digital_write(Low);
-	delay_microseconds(1750);
+	delay_microseconds(1730);
 }
 
 fn send_data_bit<P: Pin>(pin: &OutputPin<P>, value: bool) {
 	match value {
 		true => {
 			pin.digital_write(High);
-			delay_microseconds(450);
+			delay_microseconds(420);
 			pin.digital_write(Low);
-			delay_microseconds(1300);
+			delay_microseconds(1260);
 		},
 		false => {
 			pin.digital_write(High);
-			delay_microseconds(450);
-			pin.digital_write(Low);
 			delay_microseconds(420);
+			pin.digital_write(Low);
+			delay_microseconds(380);
 		},
 	};
 }
@@ -42,17 +42,14 @@ fn send_data_byte<P: Pin>(pin: &OutputPin<P>, data: &u8) {
 
 fn send_repeat_marker<P: Pin>(pin: &OutputPin<P>) {
 	pin.digital_write(High);
-	delay_microseconds(440);
+	delay_microseconds(420);
 	pin.digital_write(Low);
-	delay_microseconds(17100);
+	delay_microseconds(17080);
 }
 
 fn send_packet<P: Pin>(pin: &OutputPin<P>, bytes: &Vec<u8>) {
-	for i in 0..2 {
-		send_header(pin);
-		for byte in bytes { send_data_byte(pin, byte); }
-		send_repeat_marker(pin);
-	}
+	send_header(pin);
+	for byte in bytes { send_data_byte(pin, byte); }
 }
 
 enum FanMode {
@@ -100,7 +97,8 @@ fn serialize_time(time: &Tm) -> u8 {
 }
 
 fn serialize(command: &HvacCommand) -> Vec<u8> {
-	let mut data = vec![0x23, 0xcb, 0x26, 0x01, 0x00];
+	// let mut data = vec![0x23, 0xcb, 0x26, 0x01, 0x00];
+	let mut data = vec![0x00, 0xcb, 0x26, 0x01, 0x00];
 
 	match command {
 		&HvacCommand::Off => data.extend([0x20, 0x08, 0x07, 0x00, 0x00, 0x00].iter().clone()),
@@ -127,8 +125,7 @@ fn serialize(command: &HvacCommand) -> Vec<u8> {
 			let mut temperature_data: u8 = 0;
 			match mode {
 				&HvacMode::Cool(Fahrenheit(mut temperature)) | &HvacMode::Heat(Fahrenheit(mut temperature)) => {
-					temperature = cmp::max(temperature, 89);
-					temperature = cmp::min(temperature, 59);
+					temperature = cmp::max(cmp::min(temperature, 89), 59);
 					temperature_data |= ((89 - temperature) / 2) as u8;
 				},
 				&HvacMode::Feel(ref feeling) => {
