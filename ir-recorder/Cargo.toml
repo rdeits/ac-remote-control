@@ -1,0 +1,9 @@
+[package]
+name = "ir-recorder"
+version = "0.1.0"
+authors = ["Robin Deits <robin.deits@gmail.com>"]
+
+[dependencies]
+wiringpi="0.1"
+time="*"
+csv="*"
