@@ -4,7 +4,6 @@ extern crate csv;
 
 use wiringpi::pin::Value::{High, Low};
 use wiringpi::thread::priority;
-use std::fs::File;
 use std::path::Path;
 
 fn main() {
@@ -19,33 +18,38 @@ fn main() {
 	
 	println!("ready");
 
-	let start_time = time::PreciseTime::now();
+	let mut data = Vec::<(bool, i64)>::with_capacity(1000);
 
-	let mut data = : Vec<(i64, bool)>::with_capacity(200000);
+	while pin.digital_read() == Low {}
 
-	while !pin.digital_read() {}
-
-	let mut last_high_time = time::PreciseTime::now();
+	let mut last_change_time = time::PreciseTime::now();
+	let mut state = High;
 
 	loop {
-		current_time = time::PreciseTime::now();
+		let current_time = time::PreciseTime::now();
+		let time_since_change = last_change_time.to(current_time);
+
+		if time_since_change > time::Duration::milliseconds(20) {
+			data.push((state == High, time_since_change.num_microseconds().expect("couldn't convert to usec")));
+			break;
+		}
+		
 		let value = pin.digital_read();
-		match value {
-			High => last_high_time = current_time;
-			Low => {
-				if current_time - last_high_time > Duration::milliseconds(20) {
-					break;
-				}
-			}
-		data.push(((current_time - start_time).num_microseconds().expect("couldn't convert microseconds"), value));
+		if value == state {
+			continue;
+		} else {
+			data.push((state == High, time_since_change.num_microseconds().expect("couldn't convert to us")));
+			state = value;
+			last_change_time = current_time;
+		}
 	}
 
 
+	println!("writing {} lines", data.len());
 	let path = Path::new("ir_data.csv");
 	let mut writer = csv::Writer::from_file(path).expect("couldn't open file");
 	for record in data.into_iter() {
 		let result = writer.encode(record);
-		assert!(resuilt.is_ok());
+		assert!(result.is_ok());
 	}
-	println!("wrote {} lines", data.len());
 }
